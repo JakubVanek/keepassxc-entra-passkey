@@ -8,3 +8,4 @@ openssl req -new -sha256 -key attestation_key.pem -out attestation_cert.csr -con
 openssl x509 -req -sha256 -in attestation_cert.csr -signkey attestation_key.pem -out attestation_cert.pem -days 3650 -extfile attestation_cert.conf -extensions v3_req
 openssl x509 -in attestation_cert.pem -inform PEM -out attestation_cert.crt -outform DER
 
+base64 attestation_cert.crt | sed 's|+|-|g; s|/|_|g; s|=||g' >attestation_cert.crt.base64
