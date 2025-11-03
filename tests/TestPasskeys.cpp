@@ -281,7 +281,7 @@ void TestPasskeys::testCreatingAttestationObjectWithEC()
     const auto credentialPrivateKey =
         browserPasskeys()->buildCredentialPrivateKey(alg, predefinedFirst, predefinedSecond);
     auto result = browserPasskeys()->buildAttestationObject(
-        credentialCreationOptions, "", id, credentialPrivateKey.cborEncodedPublicKey, testingVariables);
+        credentialCreationOptions, "", id, credentialPrivateKey.cborEncodedPublicKey, {}, {}, testingVariables);
     QCOMPARE(
         result,
         QString("\xA3"
@@ -349,7 +349,7 @@ void TestPasskeys::testCreatingAttestationObjectWithRSA()
     auto credentialPrivateKey =
         browserPasskeys()->buildCredentialPrivateKey(alg, predefinedModulus, predefinedExponent);
     auto result = browserPasskeys()->buildAttestationObject(
-        credentialCreationOptions, "", id, credentialPrivateKey.cborEncodedPublicKey, testingVariables);
+        credentialCreationOptions, "", id, credentialPrivateKey.cborEncodedPublicKey, {}, {}, testingVariables);
 
     // Double check that the result can be decoded
     BrowserCbor browserCbor;
