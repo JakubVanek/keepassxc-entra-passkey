@@ -107,12 +107,14 @@ PublicKeyCredential BrowserPasskeys::buildRegisterPublicKeyCredential(const QJso
     }
 
     // Authenticator data
-    const auto authenticatorData = buildAuthenticatorData(credentialCreationOptions["rp"]["id"].toString(), extensions);
+    const auto authenticatorData = buildFullAuthenticatorData(
+        credentialCreationOptions, extensions, credentialId, privateKey.cborEncodedPublicKey, testingVariables);
+
+    // Client data
+    const auto clientDataArray = QJsonDocument(clientDataJson).toJson(QJsonDocument::Compact);
 
     // Attestation
-    const auto clientDataArray = QJsonDocument(clientDataJson).toJson(QJsonDocument::Compact);
-    const auto attestationObject = buildAttestationObject(
-        credentialCreationOptions, extensions, credentialId, privateKey.cborEncodedPublicKey, authenticatorData, clientDataArray, testingVariables);
+    const auto attestationObject = buildAttestationObject(authenticatorData, clientDataArray);
     if (attestationObject.isEmpty()) {
         return {};
     }
@@ -177,14 +179,10 @@ QJsonObject BrowserPasskeys::buildGetPublicKeyCredential(const QJsonObject& asse
 }
 
 // https://w3c.github.io/webauthn/#attestation-object
-QByteArray BrowserPasskeys::buildAttestationObject(const QJsonObject& credentialCreationOptions,
-                                                   const QString& extensions,
-                                                   const QString& credentialId,
-                                                   const QByteArray& cborEncodedPublicKey,
-                                                   const QByteArray& authenticatorData,
-                                                   const QByteArray& clientData,
-                                                   const TestingVariables& testingVariables)
+QByteArray BrowserPasskeys::buildAttestationObject(const QByteArray& authenticatorData, const QByteArray& clientData)
 {
+
+    // attestation signature
     const auto signature = buildSignature(authenticatorData, clientData, ATTESTATION_KEY_PEM);
     if (signature.isEmpty()) {
         return {};
@@ -193,6 +191,17 @@ QByteArray BrowserPasskeys::buildAttestationObject(const QJsonObject& credential
     const auto cert = browserMessageBuilder()->getArrayFromBase64(ATTESTATION_CERT_DER_BASE64);
     const auto signatureAlgorithm = WebAuthnAlgorithms::ES256;
 
+    // The final result should be CBOR encoded
+    return m_browserCbor.cborEncodePackedAttestation(authenticatorData, signatureAlgorithm, signature, cert);
+}
+
+// Build a full version of the attestation object for webauthn.create
+QByteArray BrowserPasskeys::buildFullAuthenticatorData(const QJsonObject& credentialCreationOptions,
+                                                       const QString& extensions,
+                                                       const QString& credentialId,
+                                                       const QByteArray& cborEncodedPublicKey,
+                                                       const TestingVariables& testingVariables)
+{
     QByteArray result;
 
     // Create SHA256 hash from rpId
@@ -228,8 +237,7 @@ QByteArray BrowserPasskeys::buildAttestationObject(const QJsonObject& credential
         result.append(browserMessageBuilder()->getArrayFromBase64(extensions));
     }
 
-    // The final result should be CBOR encoded
-    return m_browserCbor.cborEncodePackedAttestation(result, signatureAlgorithm, signature, cert);
+    return result;
 }
 
 // Build a short version of the attestation object for webauthn.get

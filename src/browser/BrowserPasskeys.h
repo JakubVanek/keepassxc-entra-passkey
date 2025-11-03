@@ -108,13 +108,12 @@ public:
     static const QString ATTESTATION_KEY_PEM;
     static const QString ATTESTATION_CERT_DER_BASE64;
 private:
-    QByteArray buildAttestationObject(const QJsonObject& credentialCreationOptions,
-                                      const QString& extensions,
-                                      const QString& credentialId,
-                                      const QByteArray& cborEncodedPublicKey,
-                                      const QByteArray& authenticatorData,
-                                      const QByteArray& clientData,
-                                      const TestingVariables& predefinedVariables = {});
+    QByteArray buildAttestationObject(const QByteArray& authenticatorData, const QByteArray& clientData);
+    QByteArray buildFullAuthenticatorData(const QJsonObject& credentialCreationOptions,
+                                          const QString& extensions,
+                                          const QString& credentialId,
+                                          const QByteArray& cborEncodedPublicKey,
+                                          const TestingVariables& predefinedVariables = {});
     QByteArray buildAuthenticatorData(const QString& rpId, const QString& extensions);
     AttestationKeyPair buildCredentialPrivateKey(int alg,
                                                  const QString& predefinedFirst = QString(),
