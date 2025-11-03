@@ -58,6 +58,27 @@ const QString BrowserPasskeys::REQUIREMENT_REQUIRED = QStringLiteral("required")
 const QString BrowserPasskeys::PASSKEYS_ATTESTATION_DIRECT = QStringLiteral("direct");
 const QString BrowserPasskeys::PASSKEYS_ATTESTATION_NONE = QStringLiteral("none");
 
+const QString BrowserPasskeys::ATTESTATION_KEY_PEM = QStringLiteral(
+    "-----BEGIN PRIVATE KEY-----\n"
+    "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgMp2jKWQSr2ffRWTC\n"
+    "lNNnE/55UDYqZXoyt8Y/g5WWKzyhRANCAASnfP2wcS1ycIckf48ozm+Otv24g/JX\n"
+    "HpWB7bwmrjGKIRTfEZkr55+f50TI8VDJccI90zwE/PNHPZtGB9UDV4b7\n"
+    "-----END PRIVATE KEY-----\n"
+);
+
+const QString BrowserPasskeys::ATTESTATION_CERT_DER_BASE64 = QStringLiteral(
+    "MIICEzCCAbmgAwIBAgIUEjfKSEs3Opy5NagTvFJzq8PswPkwCgYIKoZIzj0EAwIwcTELMAkGA1UE"
+    "BhMCQ1oxEjAQBgNVBAoMCUtlZVBhc3NYQzEiMCAGA1UECwwZQXV0aGVudGljYXRvciBBdHRlc3Rh"
+    "dGlvbjEqMCgGA1UEAwwhS2VlUGFzc1hDIEF0dGVzdGF0aW9uIENlcnRpZmljYXRlMB4XDTI1MTEw"
+    "MzIxMTQ0OVoXDTM1MTEwMTIxMTQ0OVowcTELMAkGA1UEBhMCQ1oxEjAQBgNVBAoMCUtlZVBhc3NY"
+    "QzEiMCAGA1UECwwZQXV0aGVudGljYXRvciBBdHRlc3RhdGlvbjEqMCgGA1UEAwwhS2VlUGFzc1hD"
+    "IEF0dGVzdGF0aW9uIENlcnRpZmljYXRlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEp3z9sHEt"
+    "cnCHJH-PKM5vjrb9uIPyVx6Vge28Jq4xiiEU3xGZK-efn-dEyPFQyXHCPdM8BPzzRz2bRgfVA1eG"
+    "-6MvMC0wDAYDVR0TAQH_BAIwADAdBgNVHQ4EFgQUrdrcJJHmggXlSv9mBtOUDzsNyFwwCgYIKoZI"
+    "zj0EAwIDSAAwRQIhAJ7KBP-diu74yK61hkrkWzmc5MLX4asAwphPjuC1wdhxAiAa7bTFicjvdltu"
+    "TJBqNod_vjYbUolbRReat56JUDyflg"
+);
+
 BrowserPasskeys* BrowserPasskeys::instance()
 {
     return s_browserPasskeys;
@@ -85,15 +106,16 @@ PublicKeyCredential BrowserPasskeys::buildRegisterPublicKeyCredential(const QJso
         return {};
     }
 
+    // Authenticator data
+    const auto authenticatorData = buildAuthenticatorData(credentialCreationOptions["rp"]["id"].toString(), extensions);
+
     // Attestation
+    const auto clientDataArray = QJsonDocument(clientDataJson).toJson(QJsonDocument::Compact);
     const auto attestationObject = buildAttestationObject(
-        credentialCreationOptions, extensions, credentialId, privateKey.cborEncodedPublicKey, testingVariables);
+        credentialCreationOptions, extensions, credentialId, privateKey.cborEncodedPublicKey, authenticatorData, clientDataArray, testingVariables);
     if (attestationObject.isEmpty()) {
         return {};
     }
-
-    // Authenticator data
-    const auto authenticatorData = buildAuthenticatorData(credentialCreationOptions["rp"]["id"].toString(), extensions);
 
     // Response
     QJsonObject responseObject;
@@ -159,8 +181,18 @@ QByteArray BrowserPasskeys::buildAttestationObject(const QJsonObject& credential
                                                    const QString& extensions,
                                                    const QString& credentialId,
                                                    const QByteArray& cborEncodedPublicKey,
+                                                   const QByteArray& authenticatorData,
+                                                   const QByteArray& clientData,
                                                    const TestingVariables& testingVariables)
 {
+    const auto signature = buildSignature(authenticatorData, clientData, ATTESTATION_KEY_PEM);
+    if (signature.isEmpty()) {
+        return {};
+    }
+
+    const auto cert = browserMessageBuilder()->getArrayFromBase64(ATTESTATION_CERT_DER_BASE64);
+    const auto signatureAlgorithm = WebAuthnAlgorithms::ES256;
+
     QByteArray result;
 
     // Create SHA256 hash from rpId
@@ -197,7 +229,7 @@ QByteArray BrowserPasskeys::buildAttestationObject(const QJsonObject& credential
     }
 
     // The final result should be CBOR encoded
-    return m_browserCbor.cborEncodeAttestation(result);
+    return m_browserCbor.cborEncodePackedAttestation(result, signatureAlgorithm, signature, cert);
 }
 
 // Build a short version of the attestation object for webauthn.get

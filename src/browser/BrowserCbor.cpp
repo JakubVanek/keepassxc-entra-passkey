@@ -45,6 +45,42 @@ QByteArray BrowserCbor::cborEncodeAttestation(const QByteArray& authData) const
     return result;
 }
 
+// https://w3c.github.io/webauthn/#sctn-packed-attestation
+// https://w3c.github.io/webauthn/#sctn-generating-an-attestation-object
+QByteArray BrowserCbor::cborEncodePackedAttestation(const QByteArray& authData, int alg, const QByteArray& sig, const QByteArray& cert) const
+{
+    QByteArray result;
+    QCborStreamWriter writer(&result);
+
+    writer.startMap(3);
+
+    writer.append("fmt");
+    writer.append("packed");
+
+    writer.append("attStmt");
+    writer.startMap(3);
+
+    writer.append("alg");
+    writer.append(alg);
+
+    writer.append("sig");
+    writer.appendByteString(sig.constData(), sig.size());
+
+    writer.append("x5c");
+    writer.startArray(1);
+    writer.appendByteString(cert.constData(), cert.size());
+    writer.endArray();
+
+    writer.endMap();
+
+    writer.append("authData");
+    writer.appendByteString(authData.constData(), authData.size());
+
+    writer.endMap();
+
+    return result;
+}
+
 // https://w3c.github.io/webauthn/#authdata-attestedcredentialdata-credentialpublickey
 QByteArray BrowserCbor::cborEncodePublicKey(int alg, const QByteArray& first, const QByteArray& second) const
 {
