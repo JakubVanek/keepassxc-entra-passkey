@@ -59,6 +59,7 @@ class BrowserCbor
 {
 public:
     QByteArray cborEncodeAttestation(const QByteArray& authData) const;
+    QByteArray cborEncodePackedAttestation(const QByteArray& authData, int alg, const QByteArray& sig, const QByteArray& cert) const;
     QByteArray cborEncodePublicKey(int alg, const QByteArray& first, const QByteArray& second) const;
     QByteArray cborEncodeExtensionData(const QJsonObject& extensions) const;
     QJsonObject getJsonFromCborData(const QByteArray& byteArray) const;
